@@ -467,18 +467,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
     }
     return null;
   }
-  function cargarNivel(nivel) {
-    var vm = getVM();
-    var stage = vm && vm.runtime.getTargetForStage();
-    if (!stage) return false;
-    for (var id in stage.variables) {
-      if (stage.variables[id].name === 'Niveles') {
-        stage.variables[id].value = nivel;
-        return true;
-      }
-    }
-    return false;
-  }
   function receive(value) {
     var input = String(value == null ? '' : value).trim();
     if (!input || input === lastCommand) return false;
@@ -524,10 +512,15 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
     if (ai && typeof ai.getWebViewString === 'function') {
       try { receive(ai.getWebViewString()); } catch (e) { lastError = String(e); }
     }
-    if (initialLevelPending !== null && !busy && !pending.length) {
-      if (cargarNivel(initialLevelPending)) {
+    // Reconstruir el jardín ejecutando los mismos eventos que al regar.
+    // No establecer Niveles directamente: Scratch también crea los objetos.
+    if (initialLevelPending !== null && !busy) {
+      var actual = Number(level());
+      if (Number.isSafeInteger(actual) && actual >= 0) {
+        var faltan = initialLevelPending - actual;
+        if (faltan > 0) pending.unshift(faltan);
+        else if (faltan < 0) lastError = 'El nivel actual supera al solicitado; recarga el jardín para reiniciarlo';
         initialLevelPending = null;
-        lastError = '';
       }
     }
     process();
