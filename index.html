@@ -453,6 +453,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
   var pending = [];
   var busy = false;
   var lastError = '';
+  var initialLevelPending = null;
   function getVM() {
     var v = window.vm || (window.scaffolding && window.scaffolding.vm) || (window.Scratch && window.Scratch.vm);
     return v && v.runtime && typeof v.runtime.startHats === 'function' ? v : null;
@@ -466,9 +467,34 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
     }
     return null;
   }
+  function cargarNivel(nivel) {
+    var vm = getVM();
+    var stage = vm && vm.runtime.getTargetForStage();
+    if (!stage) return false;
+    for (var id in stage.variables) {
+      if (stage.variables[id].name === 'Niveles') {
+        stage.variables[id].value = nivel;
+        return true;
+      }
+    }
+    return false;
+  }
   function receive(value) {
     var input = String(value == null ? '' : value).trim();
     if (!input || input === lastCommand) return false;
+    if (input.indexOf('cargarNivel:') === 0) {
+      var rawLevel = input.slice('cargarNivel:'.length);
+      var targetLevel = Number(rawLevel);
+      if (!/^\d+$/.test(rawLevel) || !Number.isSafeInteger(targetLevel) || targetLevel > 100000) {
+        lastError = 'Nivel inicial no válido';
+        return false;
+      }
+      // La página puede recibir el mensaje antes de que Scratch esté preparado.
+      initialLevelPending = targetLevel;
+      lastCommand = input;
+      lastError = '';
+      return true;
+    }
     var match = /^(?:SUBIR:)?(\d+)(?::(.+))?$/.exec(input);
     if (!match) { lastError = 'Formato no reconocido: ' + input.slice(0, 70); return false; }
     var amount = Number(match[1]);
@@ -497,6 +523,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
     var ai = window.AppInventor;
     if (ai && typeof ai.getWebViewString === 'function') {
       try { receive(ai.getWebViewString()); } catch (e) { lastError = String(e); }
+    }
+    if (initialLevelPending !== null && !busy && !pending.length) {
+      if (cargarNivel(initialLevelPending)) {
+        initialLevelPending = null;
+        lastError = '';
+      }
     }
     process();
   }, 200);
